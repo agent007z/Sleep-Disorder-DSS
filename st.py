@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # পেজ কনফিগারেশন
 st.set_page_config(page_title="Sleep Disorder Analysis", layout="wide")
 
-# উন্নত কাস্টম CSS (Glassmorphism Touch + Even Larger Input Labels)
+# উন্নত কাস্টম CSS
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -129,19 +129,41 @@ if predict_button and model:
     
     with col_out1:
         st.markdown("#### Confidence Level")
-        fig_bar = go.Figure(go.Bar(x=probs, y=class_names, orientation='h', marker=dict(color=['#2ecc71', '#e74c3c', '#f1c40f'])))
-        fig_bar.update_layout(xaxis=dict(range=[0, 1]), height=350, margin=dict(l=10, r=10, t=20, b=20))
+        
+        # --- UPDATE: লম্বালম্বি (Vertical) বার চার্ট এবং টেক্সট ফরম্যাটিং ---
+        # লেবেলগুলোতে বোল্ড (<b>) ট্যাগ যুক্ত করা হয়েছে
+        bold_class_names = [f"<b>{name}</b>" for name in class_names]
+        
+        fig_bar = go.Figure(go.Bar(
+            x=bold_class_names, # x অক্ষে ক্লাসের নাম 
+            y=probs,            # y অক্ষে probability
+            text=[f"<b>{p*100:.1f}%</b>" for p in probs], # পার্সেন্টেজ টেক্সট (বোল্ড)
+            textposition='auto', # টেক্সট বারের ভেতরে/বাইরে অটোমেটিক বসবে
+            textfont=dict(size=20, color='black'), # টেক্সট বড় এবং কালো
+            marker=dict(color=['#2ecc71', '#e74c3c', '#f1c40f'])
+        ))
+        
+        fig_bar.update_layout(
+            yaxis=dict(
+                range=[0, 1.15], # বারের উপরে টেক্সটের জন্য কিছুটা ফাঁকা জায়গা রাখা হলো
+                tickfont=dict(size=16, color='black'), # y অক্ষের লেখার সাইজ ও রং
+                tickformat=".0%" # y অক্ষে পার্সেন্টেজ দেখাবে
+            ),
+            xaxis=dict(
+                tickfont=dict(size=18, color='black') # x অক্ষের ক্লাস নামের সাইজ ও রং
+            ),
+            height=400, 
+            margin=dict(l=10, r=10, t=20, b=20),
+            plot_bgcolor='rgba(0,0,0,0)' # ব্যাকগ্রাউন্ড স্বচ্ছ করা হয়েছে দেখতে সুন্দর লাগার জন্য
+        )
         st.plotly_chart(fig_bar, use_container_width=True)
 
     with col_out2:
         st.markdown("#### Lifestyle Radar")
-        
-        # রাডার চার্ট ফিক্স: ক্যাটাগরি এবং ভ্যালু ঠিক করা
         categories = ['Sleep Duration', 'Sleep Quality', 'Physical Activity', 'Stress Level', 'Heart Rate']
         
-        # ভ্যালুগুলোকে ০-১ স্কেলে নিয়ে আসা
         qual_map = {"Poor": 1, "Fair": 2, "Good": 3, "Excellent": 4}
-        stress_map = {"Very Low": 5, "Low": 4, "Moderate": 3, "High": 2, "Very High": 1} # স্ট্রেস কম হলে ভালো, তাই উল্টো ম্যাপ
+        stress_map = {"Very Low": 5, "Low": 4, "Moderate": 3, "High": 2, "Very High": 1} 
         
         r_values = [
             s_dur / 12,
@@ -151,7 +173,6 @@ if predict_button and model:
             (100 - (hr-40)) / 100 if hr > 40 else 1
         ]
         
-        # রাডার লুপ করার জন্য প্রথম পয়েন্টটি শেষে আবার যোগ করা
         r_values += r_values[:1]
         categories += categories[:1]
 
@@ -166,8 +187,8 @@ if predict_button and model:
                 radialaxis=dict(visible=True, range=[0, 1], showticklabels=False),
                 angularaxis=dict(tickfont=dict(size=14, color="#2c3e50"), rotation=90, direction="clockwise")
             ),
-            showlegend=False, height=380, 
-            margin=dict(l=60, r=60, t=40, b=40) # মার্জিন বাড়ানো হয়েছে লেবেলের জন্য
+            showlegend=False, height=400, 
+            margin=dict(l=60, r=60, t=40, b=40) 
         )
         st.plotly_chart(fig_radar, use_container_width=True)
 
@@ -185,6 +206,40 @@ if predict_button and model:
         fig.set_size_inches(16, 3)
         st.pyplot(fig, use_container_width=True)
         plt.clf()
+
+    # --- Recommendation Section ---
+    st.markdown("---")
+    st.markdown("### 💡 Personalized Recommendations")
+
+    if is_healthy:
+        st.success("🎉 Great job! Your sleep profile looks healthy. Here is how you can maintain it:")
+        st.markdown("""
+        * **Consistency:** Try to go to bed and wake up at the same time every day, even on weekends.
+        * **Active Lifestyle:** Keep up with your daily physical activities and step count.
+        * **Stress Management:** Continue managing your stress levels through hobbies or relaxation.
+        """)
+        
+    elif "Insomnia" in result_text:
+        st.warning("⚠️ Your profile indicates symptoms of Insomnia. Consider these lifestyle adjustments:")
+        st.markdown("""
+        * **Digital Detox:** Avoid phones, laptops, or TV at least 1 hour before bed (blue light affects sleep).
+        * **Limit Caffeine:** Avoid tea, coffee, or energy drinks in the late afternoon and evening.
+        * **Relaxation Routine:** Try reading a book, deep breathing exercises, or a warm bath before sleeping.
+        * **Environment:** Keep your bedroom dark, quiet, and comfortably cool.
+        * **Medical Advice:** If sleep deprivation affects your daily life, please consult a doctor.
+        """)
+        
+    elif "Apnea" in result_text:
+        st.error("🚨 Your profile indicates a risk of Sleep Apnea. This often requires medical attention:")
+        st.markdown("""
+        * **Consult a Doctor:** Sleep apnea can lead to serious health issues. Please see a healthcare professional for a proper diagnosis.
+        * **Sleep Position:** Try sleeping on your side instead of your back to keep your airways open.
+        * **Weight Management:** If your BMI is in the overweight or obese category, reducing weight can significantly improve symptoms.
+        * **Avoid Sedatives:** Avoid alcohol or sleeping pills before bed, as they can relax throat muscles and worsen breathing pauses.
+        """)
+        
+    else:
+        st.info(f"Your result is: **{result_text}**. Please consult a healthcare provider for personalized medical advice.")
 
 elif not predict_button:
     st.info("Please fill the inputs and click Analyze Now to see results.")
